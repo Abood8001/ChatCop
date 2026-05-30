@@ -1,0 +1,195 @@
+# ============================================================
+#   ChatCop - Advanced Chat Moderation Plugin
+#   Author: Abood_8001
+# ============================================================
+
+general:
+  # Enable debug mode - logs filter decisions to console (disable on production)
+  debug: false
+  # Save all blocked messages to a log file
+  log-to-file: true
+  # Path to the log file (relative to ChatCop plugin folder)
+  log-file: "logs/chatcop.log"
+  # Silent mode - block messages without telling the sender
+  silent-block: false
+
+# Plugin prefix shown in all messages (supports & color codes and &#RRGGBB hex)
+prefix: "&8[&bChat&3Cop&8] "
+
+# ============================================================
+# PLACEHOLDERS (usable in punishment commands and messages):
+#   %player%   - offending player name
+#   %punisher% - who triggered the punishment (CONSOLE if automatic)
+#   %reason%   - reason the filter blocked the message
+#   %message%  - the actual blocked message
+#   %duration% - punishment duration
+#   %filter%   - filter name (Spam, Toxicity, etc.)
+#   %world%    - world name the player is in
+# ============================================================
+
+filters:
+
+  # ── SPAM FILTER ────────────────────────────────────────────
+  spam:
+    # Enable or disable the spam filter entirely
+    enabled: true
+    # Violation points awarded when this filter is triggered
+    points: 4
+    # How many similar messages are allowed before blocking
+    duplicate-threshold: 4
+    # Time window in seconds to track duplicate messages
+    duplicate-window: 8
+    # Max number of messages allowed within the flood window
+    flood-messages: 6
+    # Time window in seconds to track message flooding
+    flood-window: 3
+    # How similar two messages must be to count as duplicate (0.0 - 1.0)
+    # 1.0 = identical only, 0.8 = 80% similar
+    similarity-threshold: 0.80
+    # Percentage of capital letters to trigger caps warning (0 - 100)
+    caps-threshold: 70
+    # Minimum message length before caps check applies
+    caps-min-length: 12
+    # Points awarded for excessive caps (usually lower than main points)
+    caps-points: 2
+    # Block messages with a character repeated too many times (e.g. "heeellooo")
+    repeated-chars: true
+    # How many times a character must repeat to trigger the check
+    repeated-chars-threshold: 10
+    punishment:
+      # Commands to run when this filter is triggered (leave empty [] for none)
+      # Supports all placeholders listed above
+      commands: []
+
+  # ── ADVERTISING FILTER ─────────────────────────────────────
+  advertising:
+    enabled: true
+    points: 10
+    # Block raw IP addresses (e.g. 192.168.1.1)
+    block-ips: true
+    # Block URLs with http/https or www
+    block-urls: true
+    # Additional domain patterns to block (supports regex)
+    blocked-domains:
+      - "\\b(?:play|join|mc|pvp)\\.[a-z0-9-]{2,}\\.[a-z]{2,}\\b"
+      - "\\b[a-z0-9-]+\\.(?:net|com|org|gg|xyz|top)\\b"
+    # Domains that are allowed (your own server domains go here)
+    whitelist-domains:
+      - "domain.Example1"
+      - "domain.Example2"
+      - "domain.Example3"
+    punishment:
+      commands:
+        - ""
+
+  # ── TOXICITY FILTER ────────────────────────────────────────
+  toxicity:
+    enabled: true
+    points: 8
+    # Block built-in list of racial slurs and hate speech
+    block-slurs: true
+    # Smart detection bypasses leet speak and symbol tricks (e.g. #n#i#g)
+    smart-detection: true
+    # Add your own custom phrases to block (plain text or regex)
+    blocked-phrases: [nega, ]
+    # Phrases that should never be flagged by this filter
+    whitelisted-phrases: [NightVision]
+    punishment:
+      commands:
+        - ""
+
+  # ── THREAT FILTER ──────────────────────────────────────────
+  threats:
+    enabled: true
+    points: 12
+    # Add your own custom threat phrases to block
+    blocked-phrases: [i will leak your ip, i will ddos, i will doxx]
+    # Phrases that should never be flagged by this filter
+    whitelisted-phrases: []
+    punishment:
+      commands:
+        - ""
+
+  # ── PROFANITY FILTER ───────────────────────────────────────
+  profanity:
+    enabled: true
+    points: 3
+    # Censor mode replaces bad words with the censor character instead of blocking
+    censor-mode: true
+    # Character used to replace bad words (e.g. * turns "hell" into "****")
+    censor-char: "*"
+    # How many profane words are allowed before blocking the message entirely
+    max-per-message: 3
+    # Add your own custom profane phrases to block
+    blocked-phrases: []
+    # Phrases that should never be flagged by this filter
+    whitelisted-phrases: []
+    punishment:
+      commands: []
+
+# ============================================================
+# DISCORD WEBHOOK
+# ============================================================
+discord:
+  # Enable or disable Discord webhook alerts
+  enabled: false
+  # Your Discord webhook URL (get it from channel settings > integrations)
+  webhook-url: ""
+  filters:
+    # Each filter can be individually enabled/disabled for webhook alerts
+    # Color is in decimal format - use https://www.spycolor.com to convert hex to decimal
+    Spam:
+      enabled: false
+      color: 16776960
+    Advertising:
+      enabled: true
+      color: 16753920
+    Toxicity:
+      enabled: true
+      color: 16711680
+    Threats:
+      enabled: true
+      color: 9109504
+    Profanity:
+      enabled: false
+      color: 16755200
+  # Fallback color if filter name doesn't match any above
+  default-color: 16711680
+  # URL to an image shown as footer icon (leave empty to disable)
+  footer-icon: ""
+  # URL to an image shown as thumbnail in the embed (leave empty to disable)
+  thumbnail: ""
+
+# ============================================================
+# STAFF NOTIFICATIONS (in-game alerts)
+# ============================================================
+notifications:
+  # Send in-game alerts to players with chatcop.notify permission
+  staff-alerts: true
+  # Format of the in-game alert message (supports placeholders and color codes)
+  alert-format: "&8[&cAlert&8] &7%player% &8| &f%filter% &8| &7\"%message%\""
+  # Play a sound to staff when an alert is sent
+  alert-sound: true
+  # Sound name (must be a valid Bukkit sound name)
+  alert-sound-type: "BLOCK_NOTE_BLOCK_PLING"
+
+# ============================================================
+# MESSAGES (supports & color codes and &#RRGGBB hex)
+# ============================================================
+messages:
+  # Sent to the player when their message is blocked
+  blocked: "&cYour message was blocked. Reason: &f{reason}"
+  # Sent to the player when their message is censored
+  censored: "&eYour message contained inappropriate language and was censored."
+  # Sent when a muted player tries to chat (shows remaining time)
+  muted: "&cYou are muted. &7Time remaining: &f{time}"
+  # Sent when a player is warned
+  warned: "&eWarning &7({count}): &f{reason}"
+  # Sent when a permanently muted player tries to chat
+  muted-permanent: "&cYou are permanently muted."
+  mute-success: "&aSuccessfully muted &f{player} &afor &f{duration}&a."
+  unmute-success: "&aSuccessfully unmuted &f{player}&a."
+  warn-success: "&aWarned &f{player}&a: &f{reason}"
+  reload-success: "&aChatCop configuration reloaded."
+  player-not-found: "&cPlayer not found: &f{player}"
+  no-permission: "&cYou don't have permission to do that."

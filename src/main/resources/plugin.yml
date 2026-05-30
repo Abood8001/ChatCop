@@ -1,0 +1,46 @@
+name: ChatCop
+version: '${project.version}'
+main: dev.chatcop.ChatCop
+api-version: '1.21'
+description: Advanced AI-powered chat moderation plugin
+authors: [Abood_8001]
+website: https://github.com/chatcop
+
+commands:
+  chatcop:
+    description: Main ChatCop command
+    aliases: [cc, cop]
+    usage: /chatcop <help|reload|stats|mute|unmute|warn|history|whitelist|blacklist>
+    permission: chatcop.admin
+  ccmute:
+    description: Mute a player
+    usage: /ccmute <player> [duration] [reason]
+    permission: chatcop.mute
+  ccunmute:
+    description: Unmute a player
+    usage: /ccunmute <player>
+    permission: chatcop.mute
+  ccwarn:
+    description: Warn a player
+    usage: /ccwarn <player> [reason]
+    permission: chatcop.warn
+
+permissions:
+  chatcop.admin:
+    description: Full access to ChatCop
+    default: op
+  chatcop.mute:
+    description: Mute/unmute players
+    default: op
+  chatcop.warn:
+    description: Warn players
+    default: op
+  chatcop.bypass:
+    description: Bypass all chat filters
+    default: false
+  chatcop.notify:
+    description: Receive moderation alerts
+    default: op
+  chatcop.stats:
+    description: View ChatCop statistics
+    default: op
