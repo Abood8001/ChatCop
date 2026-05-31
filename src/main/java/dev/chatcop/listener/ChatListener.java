@@ -7,8 +7,7 @@ import dev.chatcop.model.FilterResult;
 import dev.chatcop.model.MuteEntry;
 import dev.chatcop.model.PlayerData;
 import dev.chatcop.util.FileLogger;
-import io.papermc.paper.event.player.AsyncChatEvent;
-import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
+import org.bukkit.event.player.AsyncPlayerChatEvent;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
@@ -30,13 +29,13 @@ public class ChatListener implements Listener {
     }
 
     @EventHandler(priority = EventPriority.LOWEST, ignoreCancelled = true)
-    public void onChat(AsyncChatEvent event) {
+    public void onChat(AsyncPlayerChatEvent event) {
         Player player = event.getPlayer();
 
         // Bypass permission
         if (player.hasPermission("chatcop.bypass")) return;
 
-        String message = PlainTextComponentSerializer.plainText().serialize(event.message());
+        String message = event.getMessage();
 
         // ── MUTE CHECK ───────────────────────────────────────────────────────
         if (plugin.getMuteManager().isMuted(player.getUniqueId())) {
@@ -97,7 +96,7 @@ public class ChatListener implements Listener {
                 String censored = result.getCensored();
 
                 // Rewrite the message using Paper API
-                event.message(net.kyori.adventure.text.Component.text(censored));
+                event.setMessage(result.getCensored());
 
                 // Optionally notify sender
                 player.sendMessage(plugin.getConfigManager().getPrefix()
