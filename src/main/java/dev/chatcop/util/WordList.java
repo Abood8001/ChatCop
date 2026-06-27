@@ -10,9 +10,14 @@ public final class WordList {
     // ── RACIAL / ETHNIC SLURS ────────────────────────────────────────────────
     // Patterns use word-boundary aware forms and common obfuscations.
     public static final List<String> SLUR_PATTERNS = List.of(
-            // N-word — short form "nig", full form, hard-r
-            "n[i!1|]+g(?:g?[a@e3]?r?s?)?",
-            "n[^a-z0-9]{0,3}i[^a-z0-9]{0,3}g[^a-z0-9]{0,3}g[^a-z0-9]{0,3}[ae]r?",
+            // N-word — REQUIRES a word boundary and either a double-g or an explicit
+            // slur ending, so normal words containing "nig" (night, knight, overnight,
+            // midnight, snigger, niggle, Nigeria, typos like "understandnig") are NOT
+            // flagged. Only the actual slur forms match.
+            "\\bn[i!1|]+gg+[a@4e3o0]*[hr]*s*\\b",   // nigg / nigga / nigger / niggah / niggas / niggers
+            "\\bn[i!1|]+g[a@4]+h*s*\\b",            // niga / nigah / nigas (single-g 'a' form)
+            // Symbol/space obfuscation: n.i.g.g.e.r , n i g g e r (still requires double-g)
+            "\\bn[^a-z0-9]{0,3}i[^a-z0-9]{0,3}g[^a-z0-9]{0,3}g[^a-z0-9]{0,3}[a@4e3]+r?s?\\b",
             // Rape / sexual violence
             "\\br[a@4]+p[e3](d|ing|r|s|ist)?\\b",
             "\\bmolest(ed|ing|er)?\\b",
@@ -69,9 +74,14 @@ public final class WordList {
     );
 
     // ── ADVERTISING PATTERNS ─────────────────────────────────────────────────
-    public static final List<String> AD_PATTERNS = List.of(
+    // Split into IP and URL/domain sets so the block-ips / block-urls config
+    // toggles can enable each independently.
+    public static final List<String> AD_IP_PATTERNS = List.of(
         // IP address (v4)
-        "\\b(?:\\d{1,3}\\.){3}\\d{1,3}(?::\\d{2,5})?\\b",
+        "\\b(?:\\d{1,3}\\.){3}\\d{1,3}(?::\\d{2,5})?\\b"
+    );
+
+    public static final List<String> AD_URL_PATTERNS = List.of(
         // URL with protocol
         "\\bhttps?://[^\\s]+",
         // www. links
@@ -105,13 +115,15 @@ public final class WordList {
     // Pre-compile all patterns for speed
     public static List<Pattern> compiledSlurs;
     public static List<Pattern> compiledThreats;
-    public static List<Pattern> compiledAds;
+    public static List<Pattern> compiledAdIps;
+    public static List<Pattern> compiledAdUrls;
     public static List<Pattern> compiledProfanity;
 
     static {
         compiledSlurs   = compile(SLUR_PATTERNS);
         compiledThreats = compile(THREAT_PATTERNS);
-        compiledAds     = compile(AD_PATTERNS);
+        compiledAdIps   = compile(AD_IP_PATTERNS);
+        compiledAdUrls  = compile(AD_URL_PATTERNS);
         compiledProfanity = compile(PROFANITY_PATTERNS);
     }
 

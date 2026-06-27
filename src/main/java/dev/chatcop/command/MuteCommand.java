@@ -38,11 +38,17 @@ public class MuteCommand implements CommandExecutor {
 
         if (args.length >= 2) {
             long parsed = DurationParser.parse(args[1]);
-            if (parsed != -1 || args[1].equalsIgnoreCase("perm")) {
+            if (parsed != 0) {
+                // Recognized as a duration (perm == -1, otherwise a positive length)
                 duration = parsed;
                 if (args.length >= 3) reason = String.join(" ", java.util.Arrays.copyOfRange(args, 2, args.length));
+            } else if (looksLikeDuration(args[1])) {
+                // Looked like a duration but didn't parse (e.g. "0m", "5x") — don't
+                // silently fall through to a permanent mute.
+                sender.sendMessage(c("&cInvalid duration: &f" + args[1] + " &7(try 10m, 1h30m, 2d, perm)"));
+                return true;
             } else {
-                // Second arg isn't a duration, treat as reason
+                // Second arg isn't a duration, treat the rest as the reason
                 reason = String.join(" ", java.util.Arrays.copyOfRange(args, 1, args.length));
             }
         }
@@ -71,6 +77,11 @@ public class MuteCommand implements CommandExecutor {
             target.sendMessage(plugin.getConfigManager().getPrefix() + msg);
         }
         return true;
+    }
+
+    /** True if the arg was clearly meant as a duration (so a parse failure is an error, not a reason). */
+    private boolean looksLikeDuration(String arg) {
+        return arg.matches("(?i)(perm|permanent|-1|\\d+[a-z].*)");
     }
 
     private String c(String s) { return ConfigManager.color(s); }

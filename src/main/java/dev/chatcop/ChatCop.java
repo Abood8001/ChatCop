@@ -10,6 +10,8 @@ import dev.chatcop.manager.FilterManager;
 import dev.chatcop.manager.MuteManager;
 import dev.chatcop.manager.PunishmentManager;
 import dev.chatcop.manager.StatsManager;
+import dev.chatcop.util.Scheduler;
+import dev.chatcop.util.UpdateChecker;
 import org.bukkit.plugin.java.JavaPlugin;
 
 public final class ChatCop extends JavaPlugin {
@@ -20,6 +22,7 @@ public final class ChatCop extends JavaPlugin {
     private MuteManager muteManager;
     private PunishmentManager punishmentManager;
     private StatsManager statsManager;
+    private UpdateChecker updateChecker;
 
     @Override
     public void onEnable() {
@@ -44,6 +47,14 @@ public final class ChatCop extends JavaPlugin {
         getCommand("ccunmute").setExecutor(new UnmuteCommand(this));
         getCommand("ccwarn").setExecutor(new WarnCommand(this));
 
+        // Periodically flush stats so a crash doesn't lose everything since the
+        // last clean shutdown. Mutes already persist on each change.
+        Scheduler.asyncTimerSeconds(this, () -> statsManager.save(), 300, 300); // every 5 minutes
+
+        // Check for updates (async, opt-out via config)
+        updateChecker = new UpdateChecker(this);
+        updateChecker.checkAsync();
+
         getLogger().info("ChatCop v" + getDescription().getVersion() + " enabled successfully.");
     }
 
@@ -59,6 +70,7 @@ public final class ChatCop extends JavaPlugin {
         configManager.reload();
         filterManager.reload();
         muteManager.reload();
+        punishmentManager.reload();
     }
 
     public static ChatCop getInstance() { return instance; }
@@ -67,4 +79,5 @@ public final class ChatCop extends JavaPlugin {
     public MuteManager getMuteManager() { return muteManager; }
     public PunishmentManager getPunishmentManager() { return punishmentManager; }
     public StatsManager getStatsManager() { return statsManager; }
+    public UpdateChecker getUpdateChecker() { return updateChecker; }
 }

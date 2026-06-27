@@ -10,7 +10,7 @@ commands:
   chatcop:
     description: Main ChatCop command
     aliases: [cc, cop]
-    usage: /chatcop <help|reload|stats|mute|unmute|warn|history|whitelist|blacklist>
+    usage: /chatcop <help|reload|stats|history|test>
     permission: chatcop.admin
   ccmute:
     description: Mute a player

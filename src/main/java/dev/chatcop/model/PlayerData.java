@@ -6,18 +6,25 @@ import java.util.List;
 import java.util.Queue;
 import java.util.UUID;
 
+/**
+ * Per-player tracking data. All mutating methods are synchronized because
+ * chat events fire asynchronously and the same player can be processed
+ * on multiple threads at once.
+ */
 public class PlayerData {
 
     private final UUID uuid;
     private int points;
     private long lastPointDecay;
     private int warnCount;
+    private int decayPerMinute = 2; // overridden from config
 
-    // For spam detection
+    // Cooldown: timestamp until which punishment commands are suppressed
+    private long punishmentCooldownUntil = 0;
+
     private final Queue<Long> recentMessages = new LinkedList<>();
     private final List<String> recentContent = new ArrayList<>();
-
-    // Violation history (last 20 entries)
+    private final List<Long> recentContentTimes = new ArrayList<>();
     private final List<String> violationHistory = new ArrayList<>();
 
     public PlayerData(UUID uuid) {
@@ -26,39 +33,56 @@ public class PlayerData {
         this.lastPointDecay = System.currentTimeMillis();
     }
 
-    public void addPoints(int pts) {
+    public synchronized void setDecayPerMinute(int decayPerMinute) {
+        this.decayPerMinute = decayPerMinute;
+    }
+
+    public synchronized void addPoints(int pts) {
         decayPoints();
         this.points += pts;
     }
 
-    public void decayPoints() {
+    public synchronized void decayPoints() {
         long now = System.currentTimeMillis();
         long minutesPassed = (now - lastPointDecay) / 60000;
         if (minutesPassed > 0) {
-            // Will be fetched from config by PunishmentManager
-            points = Math.max(0, points - (int) minutesPassed * 2);
+            points = Math.max(0, points - (int) (minutesPassed * decayPerMinute));
             lastPointDecay = now;
         }
     }
 
-    public void trackMessage(String content) {
+    /** Records the message timestamp for flood detection (called for every message). */
+    public synchronized void trackTimestamp() {
         long now = System.currentTimeMillis();
         recentMessages.add(now);
-        recentContent.add(content.toLowerCase());
-        // Keep only last 10
-        while (recentContent.size() > 10) recentContent.remove(0);
-        // Trim old timestamps
         while (!recentMessages.isEmpty() && now - recentMessages.peek() > 10000) {
             recentMessages.poll();
         }
     }
 
-    public void addViolation(String desc) {
-        violationHistory.add(0, desc);
-        if (violationHistory.size() > 20) violationHistory.remove(20);
+    /** Records message content for duplicate detection (called only for non-blocked messages). */
+    public synchronized void trackContent(String content, long expiryMs) {
+        long now = System.currentTimeMillis();
+        recentContent.add(content.toLowerCase());
+        recentContentTimes.add(now);
+        while (!recentContentTimes.isEmpty() && now - recentContentTimes.get(0) > expiryMs) {
+            recentContentTimes.remove(0);
+            recentContent.remove(0);
+        }
+        while (recentContent.size() > 10) {
+            recentContent.remove(0);
+            recentContentTimes.remove(0);
+        }
     }
 
-    public int getMessagesInWindow(long windowMs) {
+    public synchronized void addViolation(String desc) {
+        violationHistory.add(0, desc);
+        while (violationHistory.size() > 20) {
+            violationHistory.remove(violationHistory.size() - 1);
+        }
+    }
+
+    public synchronized int getMessagesInWindow(long windowMs) {
         long now = System.currentTimeMillis();
         int count = 0;
         for (long t : recentMessages) {
@@ -67,14 +91,21 @@ public class PlayerData {
         return count;
     }
 
-    public List<String> getRecentContent() { return recentContent; }
-    public Queue<Long> getRecentMessages() { return recentMessages; }
-    public List<String> getViolationHistory() { return violationHistory; }
+    /** Returns true if punishment commands should run (cooldown not active), and arms the cooldown. */
+    public synchronized boolean tryPunish(long cooldownMs) {
+        long now = System.currentTimeMillis();
+        if (now < punishmentCooldownUntil) return false;
+        punishmentCooldownUntil = now + cooldownMs;
+        return true;
+    }
+
+    public synchronized List<String> getRecentContent() { return new ArrayList<>(recentContent); }
+    public synchronized List<String> getViolationHistory() { return new ArrayList<>(violationHistory); }
 
     public UUID getUuid() { return uuid; }
-    public int getPoints() { decayPoints(); return points; }
-    public void setPoints(int points) { this.points = points; }
-    public int getWarnCount() { return warnCount; }
-    public void incrementWarnCount() { warnCount++; }
-    public void resetPoints() { points = 0; }
+    public synchronized int getPoints() { decayPoints(); return points; }
+    public synchronized void setPoints(int points) { this.points = points; }
+    public synchronized int getWarnCount() { return warnCount; }
+    public synchronized void incrementWarnCount() { warnCount++; }
+    public synchronized void resetPoints() { points = 0; }
 }

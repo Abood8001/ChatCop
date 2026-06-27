@@ -42,7 +42,7 @@ public class FilterManager {
      */
     public FilterResult process(Player player, String message) {
         PlayerData data = getOrCreate(player.getUniqueId());
-        data.trackMessage(message);
+        data.trackTimestamp();
 
         FilterResult censorResult = null;
 
@@ -56,7 +56,8 @@ public class FilterManager {
                 censorResult = result; // Store first censor, keep checking
             }
         }
-
+        long expiryMs = plugin.getConfig().getLong("filters.spam.duplicate-content-expiry", 8) * 1000L;
+        data.trackContent(message, expiryMs);
         return censorResult != null ? censorResult : FilterResult.allow();
     }
 

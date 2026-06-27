@@ -22,6 +22,7 @@ public class ProfanityFilter implements ChatFilter {
     private char censorChar;
     private int maxPerMessage;
     private List<String> whitelist;
+    private List<Pattern> patterns;
 
     public ProfanityFilter(ChatCop plugin) {
         this.plugin = plugin;
@@ -37,25 +38,31 @@ public class ProfanityFilter implements ChatFilter {
         String cChar   = s.getString("censor-char", "*");
         censorChar     = cChar.isEmpty() ? '*' : cChar.charAt(0);
         maxPerMessage  = s.getInt("max-per-message", 3);
-        for (String custom : plugin.getConfig().getStringList("filters.profanity.blocked-phrases")) {
-            try { WordList.compiledProfanity = new ArrayList<>(WordList.compiledProfanity);
-                WordList.compiledProfanity.add(Pattern.compile(custom, Pattern.CASE_INSENSITIVE));
-            } catch (Exception ignored) {}
+
+        // Build a per-instance pattern list. Never mutate the shared static list:
+        // doing so grew it without bound on every reload and raced with the async
+        // chat thread reading it.
+        patterns = new ArrayList<>(WordList.compiledProfanity);
+        for (String custom : s.getStringList("blocked-phrases")) {
+            if (custom == null || custom.isBlank()) continue;
+            try { patterns.add(Pattern.compile(custom, Pattern.CASE_INSENSITIVE)); } catch (Exception ignored) {}
         }
         whitelist = plugin.getConfig().getStringList("filters.profanity.whitelisted-phrases");
     }
 
     @Override
     public FilterResult analyze(Player player, String message, PlayerData data) {
-        List<Pattern> profanity = WordList.compiledProfanity;
         String normalized = TextNormalizer.normalize(message);
 
-        int count = 0;
-        String lower = message.toLowerCase();
+        // Exempt only the whitelisted phrases themselves, not the whole message,
+        // so a whitelisted word can't be used as a free pass for the rest.
         for (String w : whitelist) {
-            if (lower.contains(w.toLowerCase())) return FilterResult.allow();
+            if (w == null || w.isBlank()) continue;
+            normalized = normalized.replace(w.toLowerCase(), " ");
         }
-        for (Pattern p : profanity) {
+
+        int count = 0;
+        for (Pattern p : patterns) {
             Matcher m = p.matcher(normalized);
             while (m.find()) count++;
         }
@@ -77,7 +84,7 @@ public class ProfanityFilter implements ChatFilter {
     private String censorMessage(String message) {
         String result = message;
         // Apply censorship on original message (case-insensitive replacements)
-        for (Pattern p : WordList.compiledProfanity) {
+        for (Pattern p : patterns) {
             Matcher m = p.matcher(result);
             StringBuffer sb = new StringBuffer();
             while (m.find()) {

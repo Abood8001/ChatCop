@@ -2,6 +2,7 @@ package dev.chatcop.manager;
 
 import dev.chatcop.ChatCop;
 import dev.chatcop.util.ColorUtil;
+import dev.chatcop.util.Scheduler;
 import org.bukkit.entity.Player;
 
 import java.io.OutputStream;
@@ -89,7 +90,23 @@ public class DiscordWebhookManager {
     }
 
     private String escape(String s) {
-        return s.replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", "\\n").replace("\r", "");
+        if (s == null) return "";
+        StringBuilder sb = new StringBuilder(s.length() + 8);
+        for (int i = 0; i < s.length(); i++) {
+            char ch = s.charAt(i);
+            switch (ch) {
+                case '\\' -> sb.append("\\\\");
+                case '"'  -> sb.append("\\\"");
+                case '\n' -> sb.append("\\n");
+                case '\r' -> { /* drop */ }
+                case '\t' -> sb.append("\\t");
+                default -> {
+                    if (ch < 0x20) sb.append(String.format("\\u%04x", (int) ch)); // other control chars
+                    else sb.append(ch);
+                }
+            }
+        }
+        return sb.toString();
     }
 
     private String sanitize(String s) {

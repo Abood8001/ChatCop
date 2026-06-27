@@ -40,9 +40,11 @@ public class ThreatFilter implements ChatFilter {
     @Override
     public FilterResult analyze(Player player, String message, PlayerData data) {
         String normalized = TextNormalizer.normalize(message);
-        String lower = message.toLowerCase();
+
+        // Exempt only the whitelisted phrases themselves, not the whole message.
         for (String w : whitelist) {
-            if (lower.contains(w.toLowerCase())) return FilterResult.allow();
+            if (w == null || w.isBlank()) continue;
+            normalized = normalized.replace(w.toLowerCase(), " ");
         }
         for (Pattern p : patterns) {
             if (p.matcher(normalized).find()) {

@@ -6,10 +6,12 @@ public final class DurationParser {
 
     /**
      * Parse strings like "10m", "1h30m", "2d", "permanent" into milliseconds.
-     * Returns -1 for permanent.
+     * Returns -1 for permanent, and 0 when the input is not a valid duration
+     * (e.g. "0m", "abc"). Callers must distinguish 0 from -1 so an unparseable
+     * argument isn't silently treated as a permanent mute.
      */
     public static long parse(String input) {
-        if (input == null) return -1;
+        if (input == null) return 0;
         input = input.trim().toLowerCase();
         if (input.equals("perm") || input.equals("permanent") || input.equals("-1")) return -1;
 
@@ -31,7 +33,7 @@ public final class DurationParser {
                 default  -> 0L;
             };
         }
-        return total <= 0 ? -1 : total;
+        return Math.max(total, 0);
     }
 
     public static String format(long ms) {

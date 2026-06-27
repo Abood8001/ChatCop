@@ -6,11 +6,11 @@
 
     <groupId>dev.chatcop</groupId>
     <artifactId>ChatCop</artifactId>
-    <version>1.0.0</version>
+    <version>1.0.2</version>
     <packaging>jar</packaging>
 
     <name>ChatCop</name>
-    <description>Advanced AI-powered chat moderation</description>
+    <description>Advanced chat moderation for Spigot and Paper 1.20+</description>
 
     <properties>
         <java.version>21</java.version>

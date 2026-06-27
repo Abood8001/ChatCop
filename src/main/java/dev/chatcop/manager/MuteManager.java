@@ -68,10 +68,12 @@ public class MuteManager {
 
     public void mute(MuteEntry entry) {
         mutes.put(entry.getPlayerUuid(), entry);
+        saveMutes(); // persist immediately so a crash can't lose the mute
     }
 
     public void unmute(UUID uuid) {
         mutes.remove(uuid);
+        saveMutes();
     }
 
     public boolean isMuted(UUID uuid) {

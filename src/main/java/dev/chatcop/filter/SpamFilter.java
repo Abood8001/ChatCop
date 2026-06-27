@@ -8,6 +8,7 @@ import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.entity.Player;
 
 import java.util.List;
+import java.util.regex.Pattern;
 
 public class SpamFilter implements ChatFilter {
 
@@ -15,7 +16,6 @@ public class SpamFilter implements ChatFilter {
     private boolean enabled;
     private int points;
     private int duplicateThreshold;
-    private long duplicateWindow;
     private int floodMessages;
     private long floodWindow;
     private double similarityThreshold;
@@ -23,7 +23,7 @@ public class SpamFilter implements ChatFilter {
     private int capsMinLength;
     private int capsPoints;
     private boolean repeatedChars;
-    private int repeatedCharsThreshold;
+    private Pattern repeatedCharsPattern;
 
     public SpamFilter(ChatCop plugin) {
         this.plugin = plugin;
@@ -36,7 +36,6 @@ public class SpamFilter implements ChatFilter {
         enabled              = s.getBoolean("enabled", true);
         points               = s.getInt("points", 4);
         duplicateThreshold   = s.getInt("duplicate-threshold", 2);
-        duplicateWindow      = s.getLong("duplicate-window", 8) * 1000L;
         floodMessages        = s.getInt("flood-messages", 5);
         floodWindow          = s.getLong("flood-window", 3) * 1000L;
         similarityThreshold  = s.getDouble("similarity-threshold", 0.80);
@@ -44,7 +43,9 @@ public class SpamFilter implements ChatFilter {
         capsMinLength        = s.getInt("caps-min-length", 8);
         capsPoints           = s.getInt("caps-points", 2);
         repeatedChars        = s.getBoolean("repeated-chars", true);
-        repeatedCharsThreshold = s.getInt("repeated-chars-threshold", 4);
+        int repeatedCharsThreshold = s.getInt("repeated-chars-threshold", 4);
+        // Compile once instead of on every message.
+        repeatedCharsPattern = Pattern.compile(".*?(.)\\1{" + repeatedCharsThreshold + ",}.*", Pattern.DOTALL);
     }
 
     @Override
@@ -78,10 +79,8 @@ public class SpamFilter implements ChatFilter {
         }
 
         // 4. Repeated characters (heeelllooo)
-        if (repeatedChars) {
-            if (message.matches(".*?(.)\\1{" + repeatedCharsThreshold + ",}.*")) {
-                return FilterResult.block(getName(), "Repeated characters", capsPoints);
-            }
+        if (repeatedChars && repeatedCharsPattern.matcher(message).matches()) {
+            return FilterResult.block(getName(), "Repeated characters", capsPoints);
         }
 
         return FilterResult.allow();

@@ -31,9 +31,11 @@ public class AdvertisingFilter implements ChatFilter {
         points  = s.getInt("points", 10);
         whitelist = s.getStringList("whitelist-domains");
 
-        patterns = new ArrayList<>(WordList.compiledAds);
+        patterns = new ArrayList<>();
+        if (s.getBoolean("block-ips", true))  patterns.addAll(WordList.compiledAdIps);
+        if (s.getBoolean("block-urls", true)) patterns.addAll(WordList.compiledAdUrls);
 
-        // Add custom domains from config
+        // Custom domains are always checked, regardless of the toggles above
         for (String custom : s.getStringList("blocked-domains")) {
             try {
                 patterns.add(Pattern.compile(custom, Pattern.CASE_INSENSITIVE));
@@ -43,15 +45,16 @@ public class AdvertisingFilter implements ChatFilter {
 
     @Override
     public FilterResult analyze(Player player, String message, PlayerData data) {
-        String lower = message.toLowerCase();
-
-        // Check whitelist first
+        // Blank out whitelisted domains only, so a whitelisted domain can't be used
+        // to smuggle a different (non-whitelisted) link past the filter.
+        String scan = message;
         for (String w : whitelist) {
-            if (lower.contains(w.toLowerCase())) return FilterResult.allow();
+            if (w == null || w.isBlank()) continue;
+            scan = scan.replaceAll("(?i)" + Pattern.quote(w), " ");
         }
 
         for (Pattern p : patterns) {
-            if (p.matcher(message).find()) {
+            if (p.matcher(scan).find()) {
                 return FilterResult.block(getName(), "Advertising / external link", points);
             }
         }

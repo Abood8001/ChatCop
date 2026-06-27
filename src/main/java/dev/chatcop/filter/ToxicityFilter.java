@@ -49,14 +49,15 @@ public class ToxicityFilter implements ChatFilter {
 
     @Override
     public FilterResult analyze(Player player, String message, PlayerData data) {
-        // Check whitelist
-        String lower = message.toLowerCase();
-        for (String w : whitelisted) {
-            if (lower.contains(w.toLowerCase())) return FilterResult.allow();
-        }
-
         // Smart detection: normalize first, then check
-        String toCheck = smartDetection ? TextNormalizer.normalize(message) : lower;
+        String toCheck = smartDetection ? TextNormalizer.normalize(message) : message.toLowerCase();
+
+        // Exempt only the whitelisted phrases themselves, not the whole message,
+        // so a whitelisted word can't shield a slur elsewhere in the message.
+        for (String w : whitelisted) {
+            if (w == null || w.isBlank()) continue;
+            toCheck = toCheck.replace(w.toLowerCase(), " ");
+        }
 
         for (Pattern p : slurPatterns) {
             if (p.matcher(toCheck).find()) {

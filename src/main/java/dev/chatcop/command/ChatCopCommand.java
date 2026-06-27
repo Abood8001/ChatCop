@@ -49,6 +49,24 @@ public class ChatCopCommand implements CommandExecutor {
                 sendHistory(sender, target);
             }
 
+            case "test" -> {
+                if (!(sender instanceof Player p)) {
+                    sender.sendMessage(c("&cOnly players can use /chatcop test."));
+                    return true;
+                }
+                if (args.length < 2) { sender.sendMessage(c("&cUsage: /chatcop test <message>")); return true; }
+                String testMsg = String.join(" ", java.util.Arrays.copyOfRange(args, 1, args.length));
+                var result = plugin.getFilterManager().process(p, testMsg);
+                String p2 = plugin.getConfigManager().getPrefix();
+                if (result.isClean()) {
+                    sender.sendMessage(p2 + c("&aClean &7- this message would pass."));
+                } else {
+                    sender.sendMessage(p2 + c("&cFlagged &8| &fFilter: &e" + result.getFilterName()
+                        + " &8| &fAction: &e" + result.getAction()
+                        + " &8| &fReason: &7" + result.getReason()));
+                }
+            }
+
             case "help" -> sendHelp(sender);
 
             default -> sendHelp(sender);
@@ -93,6 +111,7 @@ public class ChatCopCommand implements CommandExecutor {
         sender.sendMessage(c("  &b/chatcop reload     &8- &7Reload configuration"));
         sender.sendMessage(c("  &b/chatcop stats      &8- &7View statistics"));
         sender.sendMessage(c("  &b/chatcop history <player> &8- &7View violation history"));
+        sender.sendMessage(c("  &b/chatcop test <message> &8- &7Test what a message would trigger"));
         sender.sendMessage(c("  &b/ccmute <player> [duration] [reason]"));
         sender.sendMessage(c("  &b/ccunmute <player>"));
         sender.sendMessage(c("  &b/ccwarn <player> [reason]"));

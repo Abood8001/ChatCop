@@ -2,7 +2,7 @@ package dev.chatcop.model;
 
 public class FilterResult {
 
-    public enum Action { ALLOW, CENSOR, BLOCK }
+    public enum Action { ALLOW, CENSOR, BLOCK, SHADOW }
 
     private final Action action;
     private final String filterName;
@@ -24,6 +24,10 @@ public class FilterResult {
 
     public static FilterResult block(String filterName, String reason, int points) {
         return new FilterResult(Action.BLOCK, filterName, reason, null, points);
+    }
+
+    public static FilterResult shadow(String filterName, String reason, int points) {
+        return new FilterResult(Action.SHADOW, filterName, reason, null, points);
     }
 
     public static FilterResult censor(String filterName, String censored, int points) {

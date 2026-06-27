@@ -13,6 +13,8 @@ public class PunishmentManager {
 
     private final ChatCop plugin;
     private TreeMap<Integer, Map<String, Object>> thresholds;
+    private int decayPerMinute;
+    private long cooldownMs;
 
     public PunishmentManager(ChatCop plugin) {
         this.plugin = plugin;
@@ -21,6 +23,9 @@ public class PunishmentManager {
 
     private void loadThresholds() {
         thresholds = new TreeMap<>();
+        decayPerMinute = plugin.getConfig().getInt("punishments.point-decay-per-minute", 2);
+        cooldownMs = plugin.getConfig().getLong("punishments.punishment-cooldown-seconds", 3) * 1000L;
+
         var section = plugin.getConfig().getConfigurationSection("punishments.thresholds");
         if (section == null) return;
         for (String key : section.getKeys(false)) {
@@ -32,14 +37,46 @@ public class PunishmentManager {
         }
     }
 
+    /**
+     * Awards points, runs per-filter punishment commands, then runs the highest
+     * triggered threshold's commands. All gated behind a per-player cooldown so a
+     * spammer can't trigger dozens of punishments in a couple of seconds.
+     */
     public void applyPoints(Player player, PlayerData data, int pts, String filterName, String message, String reason) {
+        data.setDecayPerMinute(decayPerMinute);
+        data.addPoints(pts);
+        int total = data.getPoints();
+
+        if (plugin.getConfigManager().isDebug()) {
+            plugin.getLogger().info("[Debug] " + player.getName() + " now has " + total + " points");
+        }
+
+        // Cooldown gate — if still cooling down, skip running commands this time
+        if (!data.tryPunish(cooldownMs)) {
+            if (plugin.getConfigManager().isDebug()) {
+                plugin.getLogger().info("[Debug] Punishment for " + player.getName() + " suppressed (cooldown)");
+            }
+            return;
+        }
+
+        // 1. Per-filter commands
         runFilterCommands(player, filterName, message, reason);
+
+        // 2. Highest triggered threshold
+        Map.Entry<Integer, Map<String, Object>> triggered = null;
+        for (Map.Entry<Integer, Map<String, Object>> entry : thresholds.entrySet()) {
+            if (total >= entry.getKey()) triggered = entry;
+        }
+        if (triggered != null) {
+            runThresholdCommands(player, triggered.getValue(), message, reason, filterName);
+        }
     }
 
     private void runFilterCommands(Player player, String filterName, String message, String reason) {
         List<String> commands = plugin.getConfig().getStringList(
                 "filters." + filterName.toLowerCase() + ".punishment.commands");
         for (String cmd : commands) {
+            if (cmd == null || cmd.isBlank()) continue;
             runConsoleCommand(applyPlaceholders(cmd, player, "CONSOLE", reason, message, "", filterName));
         }
     }
@@ -49,7 +86,7 @@ public class PunishmentManager {
         Object raw = data.get("commands");
         if (!(raw instanceof List<?> list)) return;
         for (Object obj : list) {
-            if (!(obj instanceof String cmd)) continue;
+            if (!(obj instanceof String cmd) || cmd.isBlank()) continue;
             runConsoleCommand(applyPlaceholders(cmd, player, "CONSOLE", reason, message, "", filterName));
         }
     }

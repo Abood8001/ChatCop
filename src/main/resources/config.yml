@@ -12,6 +12,23 @@ general:
   log-file: "logs/chatcop.log"
   # Silent mode - block messages without telling the sender
   silent-block: false
+  # Worlds where ALL chat filtering is disabled (e.g. staff worlds)
+  disabled-worlds:
+    - "creative_staff"
+
+# ============================================================
+# UPDATE CHECKER
+# Checks for a newer version on startup and tells you about it.
+# It only READS the latest version number - it never downloads or
+# installs anything. Runs fully async and fails silently if offline.
+# ============================================================
+update-checker:
+  # Turn the update check on or off
+  enabled: true
+  # Also notify players with chatcop.admin when they join, if an update exists
+  notify-admins: true
+  # Where to check for the latest version: "spigot" or "modrinth"
+  source: "spigot"
 
 # Plugin prefix shown in all messages (supports & color codes and &#RRGGBB hex)
 prefix: "&8[&bChat&3Cop&8] "
@@ -27,6 +44,30 @@ prefix: "&8[&bChat&3Cop&8] "
 #   %world%    - world name the player is in
 # ============================================================
 
+# ============================================================
+# PUNISHMENT POINTS SYSTEM
+# Every filter awards points. Points decay over time. When a player's
+# total crosses a threshold, that threshold's commands run.
+# This is SEPARATE from per-filter punishment commands (which run instantly).
+# ============================================================
+punishments:
+  # How many points a player loses per minute of good behaviour
+  point-decay-per-minute: 2
+  # Minimum seconds between punishment commands for the same player.
+  # Stops a spammer from triggering dozens of punishments in seconds.
+  punishment-cooldown-seconds: 3
+  thresholds:
+    # When a player reaches this many points, run these commands
+    15:
+      commands:
+        - "ccwarn %player% Repeated chat violations"
+    30:
+      commands:
+        - "tempmute %player% 10m Repeated chat violations"
+    50:
+      commands:
+        - "tempmute %player% 1h Excessive chat violations"
+
 filters:
 
   # ── SPAM FILTER ────────────────────────────────────────────
@@ -35,10 +76,10 @@ filters:
     enabled: true
     # Violation points awarded when this filter is triggered
     points: 4
+    # How many seconds before a repeated message is forgiven and can be sent again
+    duplicate-content-expiry: 8
     # How many similar messages are allowed before blocking
     duplicate-threshold: 4
-    # Time window in seconds to track duplicate messages
-    duplicate-window: 8
     # Max number of messages allowed within the flood window
     flood-messages: 6
     # Time window in seconds to track message flooding
@@ -86,6 +127,9 @@ filters:
   toxicity:
     enabled: true
     points: 8
+    # Ghost/shadow mode: if true, flagged messages are hidden from everyone
+    # EXCEPT the sender. They think it sent fine, so they don't try to bypass.
+    shadow-mode: false
     # Block built-in list of racial slurs and hate speech
     block-slurs: true
     # Smart detection bypasses leet speak and symbol tricks (e.g. #n#i#g)
@@ -102,6 +146,8 @@ filters:
   threats:
     enabled: true
     points: 12
+    # Ghost/shadow mode (see toxicity for explanation)
+    shadow-mode: false
     # Add your own custom threat phrases to block
     blocked-phrases: [i will leak your ip, i will ddos, i will doxx]
     # Phrases that should never be flagged by this filter
