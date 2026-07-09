@@ -63,7 +63,7 @@ public class DiscordWebhookManager {
                 + "," + footerJson
                 + "}]}";
 
-        plugin.getServer().getScheduler().runTaskAsynchronously(plugin, () -> {
+        Scheduler.async(plugin, () -> {
             try {
                 HttpURLConnection conn = (HttpURLConnection) new URL(webhookUrl).openConnection();
                 conn.setRequestMethod("POST");

@@ -2,6 +2,7 @@ package dev.chatcop.manager;
 
 import dev.chatcop.ChatCop;
 import dev.chatcop.model.PlayerData;
+import dev.chatcop.util.Scheduler;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 
@@ -62,13 +63,32 @@ public class PunishmentManager {
         // 1. Per-filter commands
         runFilterCommands(player, filterName, message, reason);
 
-        // 2. Highest triggered threshold
+        // 2. Highest triggered threshold — but only when the player crosses INTO
+        //    a higher threshold than the one already applied to them. Otherwise
+        //    every message past the cooldown re-runs the top threshold's command,
+        //    so an external `tempmute` keeps getting removed and re-applied and the
+        //    mute timer never actually counts down (see repeated re-mute spam).
+        int alreadyApplied = data.getLastPunishThreshold();
+
+        // If points have decayed below what we last punished for, drop the marker
+        // down to the highest threshold still met so good behaviour lets the
+        // escalation start over instead of being stuck at the top forever.
+        if (total < alreadyApplied) {
+            int rebased = 0;
+            for (Integer threshold : thresholds.keySet()) {
+                if (total >= threshold) rebased = threshold;
+            }
+            alreadyApplied = rebased;
+            data.setLastPunishThreshold(rebased);
+        }
+
         Map.Entry<Integer, Map<String, Object>> triggered = null;
         for (Map.Entry<Integer, Map<String, Object>> entry : thresholds.entrySet()) {
             if (total >= entry.getKey()) triggered = entry;
         }
-        if (triggered != null) {
+        if (triggered != null && triggered.getKey() > alreadyApplied) {
             runThresholdCommands(player, triggered.getValue(), message, reason, filterName);
+            data.setLastPunishThreshold(triggered.getKey());
         }
     }
 
@@ -113,7 +133,7 @@ public class PunishmentManager {
     }
 
     private void runConsoleCommand(String cmd) {
-        Bukkit.getScheduler().runTask(plugin, () ->
+        Scheduler.global(plugin, () ->
                 Bukkit.dispatchCommand(Bukkit.getConsoleSender(), cmd));
     }
 

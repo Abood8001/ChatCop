@@ -22,6 +22,11 @@ public class PlayerData {
     // Cooldown: timestamp until which punishment commands are suppressed
     private long punishmentCooldownUntil = 0;
 
+    // Highest point-threshold whose commands have already run for this player.
+    // Stops the same (or a lower) threshold's punishment from firing again on
+    // every subsequent message while the player stays above it.
+    private int lastPunishThreshold = 0;
+
     private final Queue<Long> recentMessages = new LinkedList<>();
     private final List<String> recentContent = new ArrayList<>();
     private final List<Long> recentContentTimes = new ArrayList<>();
@@ -99,6 +104,9 @@ public class PlayerData {
         return true;
     }
 
+    public synchronized int getLastPunishThreshold() { return lastPunishThreshold; }
+    public synchronized void setLastPunishThreshold(int threshold) { this.lastPunishThreshold = threshold; }
+
     public synchronized List<String> getRecentContent() { return new ArrayList<>(recentContent); }
     public synchronized List<String> getViolationHistory() { return new ArrayList<>(violationHistory); }
 
@@ -107,5 +115,5 @@ public class PlayerData {
     public synchronized void setPoints(int points) { this.points = points; }
     public synchronized int getWarnCount() { return warnCount; }
     public synchronized void incrementWarnCount() { warnCount++; }
-    public synchronized void resetPoints() { points = 0; }
+    public synchronized void resetPoints() { points = 0; lastPunishThreshold = 0; }
 }

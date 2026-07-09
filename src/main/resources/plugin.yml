@@ -2,6 +2,7 @@ name: ChatCop
 version: '${project.version}'
 main: dev.chatcop.ChatCop
 api-version: '1.20'
+folia-supported: true
 description: Advanced AI-powered chat moderation plugin
 authors: [Abood_8001]
 website: https://github.com/chatcop

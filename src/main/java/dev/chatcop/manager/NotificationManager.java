@@ -1,7 +1,7 @@
 package dev.chatcop.manager;
 
 import dev.chatcop.ChatCop;
-import dev.chatcop.config.ConfigManager;
+import dev.chatcop.util.Scheduler;
 import org.bukkit.Bukkit;
 import org.bukkit.Sound;
 import org.bukkit.entity.Player;
@@ -29,14 +29,17 @@ public class NotificationManager {
         boolean playSound = plugin.getConfigManager().isAlertSoundEnabled();
 
         for (Player p : Bukkit.getOnlinePlayers()) {
-            if (p.hasPermission("chatcop.notify")) {
-                p.sendMessage(alert);
-                if (playSound) {
+            if (!p.hasPermission("chatcop.notify")) continue;
+            p.sendMessage(alert);
+            if (playSound) {
+                // playSound must run on the player's own thread (required on Folia,
+                // and correct on Spigot too since chat events fire asynchronously).
+                Scheduler.atEntity(plugin, p, () -> {
                     try {
                         Sound sound = Sound.valueOf(soundName);
                         p.playSound(p.getLocation(), sound, 1.0f, 1.5f);
                     } catch (IllegalArgumentException ignored) {}
-                }
+                });
             }
         }
     }

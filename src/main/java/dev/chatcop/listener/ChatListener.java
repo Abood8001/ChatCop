@@ -8,6 +8,7 @@ import dev.chatcop.model.FilterResult;
 import dev.chatcop.model.MuteEntry;
 import dev.chatcop.model.PlayerData;
 import dev.chatcop.util.FileLogger;
+import dev.chatcop.util.Scheduler;
 import dev.chatcop.util.UpdateChecker;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
@@ -85,9 +86,13 @@ public class ChatListener implements Listener {
 
             case SHADOW -> {
                 // Ghost punishment: only the sender sees their own message.
-                // Remove everyone else from the recipient set so the sender
-                // believes the message went through.
-                event.getRecipients().removeIf(r -> !r.equals(player));
+                // Deliver it to them manually, then cancel the event instead
+                // of just clearing recipients — plugins like DiscordSRV skip
+                // cancelled chat events by default, so this also stops the
+                // flagged message from being relayed to a linked Discord
+                // channel. Recipients would have no effect on that relay.
+                player.sendMessage(String.format(event.getFormat(), player.getDisplayName(), event.getMessage()));
+                event.setCancelled(true);
                 plugin.getStatsManager().recordBlock();
                 handleViolation(player, result, message);
             }
@@ -144,7 +149,7 @@ public class ChatListener implements Listener {
         if (!p.hasPermission("chatcop.admin")) return;
 
         // Slight delay so the notice isn't buried under join messages.
-        Bukkit.getScheduler().runTaskLater(plugin, () -> {
+        Scheduler.globalLater(plugin, () -> {
             if (!p.isOnline()) return;
             String prefix = plugin.getConfigManager().getPrefix();
             p.sendMessage(prefix + ConfigManager.color("&eA new version &6v" + uc.getLatestVersion()
@@ -157,7 +162,7 @@ public class ChatListener implements Listener {
     public void onQuit(PlayerQuitEvent event) {
         // Free memory after a short grace period (handles quick rejoins).
         java.util.UUID uuid = event.getPlayer().getUniqueId();
-        Bukkit.getScheduler().runTaskLater(plugin, () -> {
+        Scheduler.globalLater(plugin, () -> {
             Player p = Bukkit.getPlayer(uuid);
             if (p == null || !p.isOnline()) {
                 plugin.getFilterManager().removePlayer(uuid);
