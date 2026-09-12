@@ -141,39 +141,9 @@ In the **`messages`** section both `{name}` and `%name%` forms work, e.g. `{reas
 
 ---
 
-## Building from source
-
-Requires JDK 17+ and Maven.
-
-```bash
-mvn clean package
-```
-
-The compiled plugin will be at `target/ChatCop-<version>.jar`. Unit tests run as part of the build.
-
-### Obfuscated release build
-
-```bash
-mvn clean package -Pobfuscate
-```
-
-Works on any JDK, with no extra flags. Internal packages are renamed; the plugin
-entry points (main class, listeners, commands, integrations) and their
-annotations are kept, so the jar loads and behaves identically.
-
-Obfuscation is rename-only — shrinking and optimization are deliberately off,
-because both need a complete view of the class hierarchy to be safe and
-reflectively-loaded code is exactly what they tend to break.
-
-It is still opt-in on purpose: a missed keep rule surfaces as a runtime failure
-on a live server rather than a build error, so smoke-test an obfuscated jar
-before release.
-
----
-
 ## Support
 
-Found a bug or have a suggestion? Open it on the Spigot resource discussion or the Modrinth page linked above.
+Found a bug or have a suggestion? Report it at discord server.
 
 ---
 
