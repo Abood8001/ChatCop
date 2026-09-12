@@ -6,14 +6,16 @@
 
     <groupId>dev.chatcop</groupId>
     <artifactId>ChatCop</artifactId>
-    <version>1.0.4</version>
+    <version>1.1.0</version>
     <packaging>jar</packaging>
 
     <name>ChatCop</name>
-    <description>Advanced chat moderation for Spigot and Paper 1.20+</description>
+    <description>Advanced chat moderation for Spigot, Paper and Folia 1.20+</description>
 
     <properties>
-        <java.version>21</java.version>
+        <!-- 17, not 21: nothing in the codebase needs 21, and 1.20.1-1.20.4
+             servers commonly still run Java 17. Targeting 17 keeps them. -->
+        <java.version>17</java.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     </properties>
 
@@ -21,6 +23,10 @@
         <repository>
             <id>spigotmc</id>
             <url>https://hub.spigotmc.org/nexus/content/repositories/snapshots/</url>
+        </repository>
+        <repository>
+            <id>placeholderapi</id>
+            <url>https://repo.extendedclip.com/content/repositories/placeholderapi/</url>
         </repository>
     </repositories>
 
@@ -31,19 +37,50 @@
             <version>1.20.1-R0.1-SNAPSHOT</version>
             <scope>provided</scope>
         </dependency>
+
+        <!-- Soft dependency: resolved reflectively at runtime, absent is fine. -->
+        <dependency>
+            <groupId>me.clip</groupId>
+            <artifactId>placeholderapi</artifactId>
+            <version>2.11.6</version>
+            <scope>provided</scope>
+        </dependency>
+
+        <!-- Shaded and relocated below; bStats requires relocation. -->
+        <dependency>
+            <groupId>org.bstats</groupId>
+            <artifactId>bstats-bukkit</artifactId>
+            <version>3.0.2</version>
+            <scope>compile</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <version>5.10.2</version>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 
     <build>
+        <finalName>${project.artifactId}-${project.version}</finalName>
+
         <plugins>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
                 <version>3.11.0</version>
                 <configuration>
-                    <source>${java.version}</source>
-                    <target>${java.version}</target>
+                    <release>${java.version}</release>
                 </configuration>
             </plugin>
+
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <version>3.2.5</version>
+            </plugin>
+
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-shade-plugin</artifactId>
@@ -56,16 +93,144 @@
                         </goals>
                         <configuration>
                             <createDependencyReducedPom>false</createDependencyReducedPom>
+                            <minimizeJar>true</minimizeJar>
+                            <relocations>
+                                <relocation>
+                                    <pattern>org.bstats</pattern>
+                                    <shadedPattern>dev.chatcop.lib.bstats</shadedPattern>
+                                </relocation>
+                            </relocations>
+                            <filters>
+                                <filter>
+                                    <artifact>*:*</artifact>
+                                    <excludes>
+                                        <exclude>META-INF/*.SF</exclude>
+                                        <exclude>META-INF/*.DSA</exclude>
+                                        <exclude>META-INF/*.RSA</exclude>
+                                        <exclude>META-INF/maven/**</exclude>
+                                    </excludes>
+                                </filter>
+                            </filters>
                         </configuration>
                     </execution>
                 </executions>
             </plugin>
         </plugins>
+
         <resources>
+            <!-- Only plugin.yml needs ${project.version} substituted. Filtering
+                 the whole folder also rewrote config.yml, so any ${...} a server
+                 owner typed into it would be silently replaced at build time. -->
             <resource>
                 <directory>src/main/resources</directory>
                 <filtering>true</filtering>
+                <includes>
+                    <include>plugin.yml</include>
+                </includes>
+            </resource>
+            <resource>
+                <directory>src/main/resources</directory>
+                <filtering>false</filtering>
+                <excludes>
+                    <exclude>plugin.yml</exclude>
+                </excludes>
             </resource>
         </resources>
     </build>
+
+    <profiles>
+        <!--
+            Opt-in obfuscation: mvn clean package -Pobfuscate
+
+            Deliberately NOT active by default. ProGuard renames everything the
+            keep rules below do not pin, and a missed rule shows up as a
+            runtime failure on a live server rather than a build error, so an
+            obfuscated jar needs a smoke test on a real server before release.
+        -->
+        <profile>
+            <id>obfuscate</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>com.github.wvengen</groupId>
+                        <artifactId>proguard-maven-plugin</artifactId>
+                        <version>2.6.1</version>
+                        <dependencies>
+                            <!-- Newer than the plugin's bundled ProGuard, which
+                                 cannot read the class files modern JDKs ship. -->
+                            <dependency>
+                                <groupId>com.guardsquare</groupId>
+                                <artifactId>proguard-base</artifactId>
+                                <version>7.7.0</version>
+                            </dependency>
+                            <dependency>
+                                <groupId>com.guardsquare</groupId>
+                                <artifactId>proguard-core</artifactId>
+                                <version>9.1.10</version>
+                            </dependency>
+                        </dependencies>
+                        <executions>
+                            <execution>
+                                <phase>package</phase>
+                                <goals>
+                                    <goal>proguard</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                        <configuration>
+                            <obfuscate>true</obfuscate>
+                            <injar>${project.build.finalName}.jar</injar>
+                            <outjar>${project.build.finalName}.jar</outjar>
+                            <inFilter>!META-INF/**</inFilter>
+                            <options>
+                                <option>-dontwarn **</option>
+                                <option>-dontnote **</option>
+                                <option>-ignorewarnings</option>
+                                <!-- Rename only. Shrinking and optimizing need a
+                                     complete view of the class hierarchy to be
+                                     safe, and reflectively-used code is exactly
+                                     what they get wrong. Renaming is where the
+                                     protection is anyway. -->
+                                <option>-dontshrink</option>
+                                <option>-dontoptimize</option>
+                                <option>-keepattributes *Annotation*,Signature,InnerClasses,EnclosingMethod</option>
+
+                                <!--
+                                    Entry points Bukkit resolves by name or by
+                                    reflection. These are matched on package name,
+                                    not on "implements org.bukkit...", so they hold
+                                    even when ProGuard cannot see the Bukkit
+                                    hierarchy. A hierarchy-based rule that silently
+                                    fails to match renames your event handlers and
+                                    the plugin loads but does nothing.
+                                -->
+                                <option>-keep class dev.chatcop.ChatCop { *; }</option>
+                                <option>-keep class dev.chatcop.listener.** { *; }</option>
+                                <option>-keep class dev.chatcop.command.** { *; }</option>
+                                <option>-keep class dev.chatcop.hook.** { *; }</option>
+                                <option>-keep class dev.chatcop.lib.bstats.** { *; }</option>
+
+                                <!-- Belt and braces for when the hierarchy is visible. -->
+                                <option>-keepclassmembers class * implements org.bukkit.event.Listener {
+                                    @org.bukkit.event.EventHandler &lt;methods&gt;;
+                                    }</option>
+                                <option>-keepclassmembers enum * {
+                                    public static **[] values();
+                                    public static ** valueOf(java.lang.String);
+                                    }</option>
+                            </options>
+                            <!--
+                                No <libs> entry on purpose. Pointing ProGuard at
+                                ${java.home}/jmods/java.base.jmod ties the build to
+                                the JDK version: ProGuard cannot read class files
+                                newer than Java 24, so on a JDK 25+ machine the
+                                build failed outright. The project's own
+                                dependencies are supplied automatically.
+                            -->
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
 </project>
