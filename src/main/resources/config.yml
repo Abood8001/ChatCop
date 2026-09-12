@@ -1,6 +1,10 @@
 # ============================================================
 #   ChatCop - Advanced Chat Moderation Plugin
 #   Author: Abood_8001
+#
+#   Every option below has a built-in default, so an older
+#   config.yml keeps working after an update - you only need
+#   to add the keys for features you want to change.
 # ============================================================
 
 general:
@@ -8,13 +12,15 @@ general:
   debug: false
   # Save all blocked messages to a log file
   log-to-file: true
-  # Path to the log file (relative to ChatCop plugin folder)
+  # Path to the log file (relative to the ChatCop plugin folder)
   log-file: "logs/chatcop.log"
+  # Rotate the log once it passes this size, in KB. 0 disables rotation.
+  log-max-size-kb: 5120
   # Silent mode - block messages without telling the sender
   silent-block: false
-  # Worlds where ALL chat filtering is disabled (e.g. staff worlds)
-  disabled-worlds:
-    - "creative_staff"
+  # Worlds where chat filtering is skipped (e.g. staff worlds).
+  # Mutes are still enforced in these worlds.
+  disabled-worlds: []
 
 # ============================================================
 # UPDATE CHECKER
@@ -23,25 +29,36 @@ general:
 # installs anything. Runs fully async and fails silently if offline.
 # ============================================================
 update-checker:
-  # Turn the update check on or off
   enabled: true
   # Also notify players with chatcop.admin when they join, if an update exists
   notify-admins: true
   # Where to check for the latest version: "spigot" or "modrinth"
   source: "spigot"
 
-# Plugin prefix shown in all messages (supports & color codes and &#RRGGBB hex)
+# ============================================================
+# METRICS (bStats)
+# Anonymous usage statistics. Register your plugin at bstats.org,
+# then paste the service id it gives you below. Left at 0, no
+# metrics are sent at all.
+# ============================================================
+metrics:
+  enabled: true
+  service-id: 0
+
+# Plugin prefix shown in all messages (supports & color codes and &#RRGGBB hex).
+# Write && for a literal ampersand.
 prefix: "&8[&bChat&3Cop&8] "
 
 # ============================================================
-# PLACEHOLDERS (usable in punishment commands and messages):
-#   %player%   - offending player name
-#   %punisher% - who triggered the punishment (CONSOLE if automatic)
-#   %reason%   - reason the filter blocked the message
-#   %message%  - the actual blocked message
-#   %duration% - punishment duration
-#   %filter%   - filter name (Spam, Toxicity, etc.)
-#   %world%    - world name the player is in
+# PLACEHOLDERS
+#
+# In punishment commands (%name% form):
+#   %player%   - offending player name      %punisher% - who triggered it
+#   %uuid%     - offending player UUID      %reason%   - why it was flagged
+#   %message%  - the offending message      %duration% - punishment duration
+#   %filter%   - filter name                %world%    - world name
+#
+# In the messages section below, both {name} and %name% work.
 # ============================================================
 
 # ============================================================
@@ -57,7 +74,6 @@ punishments:
   # Stops a spammer from triggering dozens of punishments in seconds.
   punishment-cooldown-seconds: 3
   thresholds:
-    # When a player reaches this many points, run these commands
     15:
       commands:
         - "ccwarn %player% Repeated chat violations"
@@ -68,15 +84,91 @@ punishments:
       commands:
         - "tempmute %player% 1h Excessive chat violations"
 
+# ============================================================
+# CHAT CONTROL
+# Server-wide controls that run before the filters.
+# ============================================================
+chat-control:
+  # Seconds a player must wait between messages. 0 disables it.
+  # Bypass: chatcop.bypass.slowmode
+  slowmode-seconds: 0
+  # Seconds a player must be connected before they may chat.
+  # Very effective against bot raids. 0 disables it.
+  # Bypass: chatcop.bypass.joindelay
+  first-join-delay-seconds: 0
+  # Start with chat locked (staff with chatcop.chatlock.bypass can still talk)
+  locked-on-start: false
+
+# ============================================================
+# COMMAND FILTERING
+# Without this, every filter is one /msg away from being bypassed.
+# ============================================================
+command-filter:
+  enabled: true
+  # Commands whose text is run through the chat filters.
+  # Format "<command>:<args-before-message>" - /msg <player> <message>
+  # has one argument before the message, /me <message> has none.
+  filtered:
+    - "msg:1"
+    - "tell:1"
+    - "whisper:1"
+    - "w:1"
+    - "m:1"
+    - "t:1"
+    - "r:0"
+    - "reply:0"
+    - "me:0"
+    - "say:0"
+    - "mail:1"
+    - "broadcast:0"
+  # Commands a muted player may not use at all.
+  blocked-when-muted:
+    - "msg"
+    - "tell"
+    - "whisper"
+    - "w"
+    - "m"
+    - "r"
+    - "reply"
+    - "me"
+    - "mail"
+    - "say"
+    - "broadcast"
+
+# ============================================================
+# EXTRA SURFACES
+# The other places players can write text.
+# ============================================================
+extras:
+  filter-signs: true
+  filter-books: true
+  filter-anvil: true
+
+# ============================================================
+# MUTES
+# ============================================================
+mutes:
+  # Keep mutes across restarts
+  persistent: true
+  # Where mutes are stored (relative to the ChatCop plugin folder)
+  storage-file: "data/mutes.yml"
+
+# ============================================================
+# PLAYER DATA
+# Violation points, warning counts and history.
+# ============================================================
+player-data:
+  # Keep them across restarts. Turn off to make them session-only.
+  persistent: true
+
 filters:
 
   # ── SPAM FILTER ────────────────────────────────────────────
   spam:
-    # Enable or disable the spam filter entirely
     enabled: true
     # Violation points awarded when this filter is triggered
     points: 4
-    # How many seconds before a repeated message is forgiven and can be sent again
+    # How many seconds a message is remembered for duplicate checks
     duplicate-content-expiry: 8
     # How many similar messages are allowed before blocking
     duplicate-threshold: 4
@@ -89,17 +181,27 @@ filters:
     similarity-threshold: 0.80
     # Percentage of capital letters to trigger caps warning (0 - 100)
     caps-threshold: 70
-    # Minimum message length before caps check applies
+    # Minimum message length before the caps check applies
     caps-min-length: 12
     # Points awarded for excessive caps (usually lower than main points)
     caps-points: 2
-    # Block messages with a character repeated too many times (e.g. "heeellooo")
+    # Block messages with a character repeated too many times ("heeellooo")
     repeated-chars: true
-    # How many times a character must repeat to trigger the check
     repeated-chars-threshold: 10
+    # Catches the same line arriving from several accounts at once, which is
+    # what a bot raid looks like. Per-player tracking cannot see this, because
+    # each account only sends the message once.
+    cross-player:
+      enabled: true
+      # How many different players must send it within the window
+      player-threshold: 4
+      # Window in seconds
+      window: 10
+      # How similar the messages must be (0.0 - 1.0)
+      similarity: 0.90
+      points: 6
     punishment:
       # Commands to run when this filter is triggered (leave empty [] for none)
-      # Supports all placeholders listed above
       commands: []
 
   # ── ADVERTISING FILTER ─────────────────────────────────────
@@ -108,67 +210,65 @@ filters:
     points: 10
     # Block raw IP addresses (e.g. 192.168.1.1)
     block-ips: true
-    # Block URLs with http/https or www
+    # Block URLs, domains and Discord invites
     block-urls: true
-    # Additional domain patterns to block (supports regex)
-    blocked-domains:
-      - "\\b(?:play|join|mc|pvp)\\.[a-z0-9-]{2,}\\.[a-z]{2,}\\b"
-      - "\\b[a-z0-9-]+\\.(?:net|com|org|gg|xyz|top)\\b"
-    # Domains that are allowed (your own server domains go here)
-    whitelist-domains:
-      - "domain.Example1"
-      - "domain.Example2"
-      - "domain.Example3"
+    # Extra domains to block. A plain word is matched as a whole word;
+    # anything containing regex characters is treated as a regex.
+    blocked-domains: []
+    # Domains that are always allowed (put your own server domains here)
+    whitelist-domains: []
     punishment:
-      commands:
-        - ""
+      commands: []
 
   # ── TOXICITY FILTER ────────────────────────────────────────
   toxicity:
     enabled: true
     points: 8
-    # Ghost/shadow mode: if true, flagged messages are hidden from everyone
-    # EXCEPT the sender. They think it sent fine, so they don't try to bypass.
+    # Ghost/shadow mode: flagged messages are hidden from everyone EXCEPT the
+    # sender, so they think it sent fine and don't try to bypass.
     shadow-mode: false
-    # Block built-in list of racial slurs and hate speech
+    # Built-in list of racial and identity slurs
     block-slurs: true
-    # Smart detection bypasses leet speak and symbol tricks (e.g. #n#i#g)
+    # Built-in list of sexual content (reported separately from slurs)
+    block-sexual-content: true
+    # Smart detection sees through leet speak, symbols and letter spacing
     smart-detection: true
-    # Add your own custom phrases to block (plain text or regex)
-    blocked-phrases: [nega, ]
+    # Your own phrases. A plain word matches as a whole word, so "nega" will
+    # NOT flag "negative". Use regex if you want partial matching.
+    blocked-phrases: []
     # Phrases that should never be flagged by this filter
-    whitelisted-phrases: [NightVision]
+    whitelisted-phrases: []
     punishment:
-      commands:
-        - ""
+      commands: []
 
   # ── THREAT FILTER ──────────────────────────────────────────
   threats:
     enabled: true
     points: 12
-    # Ghost/shadow mode (see toxicity for explanation)
     shadow-mode: false
-    # Add your own custom threat phrases to block
-    blocked-phrases: [i will leak your ip, i will ddos, i will doxx]
-    # Phrases that should never be flagged by this filter
+    blocked-phrases:
+      - "i will leak your ip"
+      - "i will ddos"
+      - "i will doxx"
     whitelisted-phrases: []
     punishment:
-      commands:
-        - ""
+      commands: []
 
   # ── PROFANITY FILTER ───────────────────────────────────────
   profanity:
     enabled: true
     points: 3
-    # Censor mode replaces bad words with the censor character instead of blocking
+    # Censor mode replaces bad words instead of blocking the message.
+    # If a message can't be censored safely (spaced-out obfuscation, for
+    # example) it is blocked rather than sent through uncensored.
     censor-mode: true
-    # Character used to replace bad words (e.g. * turns "hell" into "****")
+    # Character used to replace bad words
     censor-char: "*"
+    # Points awarded when a message is censored rather than blocked
+    censor-points: 1
     # How many profane words are allowed before blocking the message entirely
     max-per-message: 3
-    # Add your own custom profane phrases to block
     blocked-phrases: []
-    # Phrases that should never be flagged by this filter
     whitelisted-phrases: []
     punishment:
       commands: []
@@ -177,13 +277,21 @@ filters:
 # DISCORD WEBHOOK
 # ============================================================
 discord:
-  # Enable or disable Discord webhook alerts
   enabled: false
-  # Your Discord webhook URL (get it from channel settings > integrations)
+  # Your Discord webhook URL (channel settings > integrations)
   webhook-url: ""
+  # Also post manual staff actions (mutes, unmutes, warns)
+  staff-actions: true
+  # Colour for staff action embeds
+  action-color: 3447003
+  # Alerts are queued and sent one at a time so a spam wave doesn't
+  # trip Discord's rate limit.
+  send-interval-seconds: 2
+  # Maximum queued alerts before the oldest are dropped
+  queue-limit: 50
   filters:
-    # Each filter can be individually enabled/disabled for webhook alerts
-    # Color is in decimal format - use https://www.spycolor.com to convert hex to decimal
+    # Each filter can be individually enabled/disabled for webhook alerts.
+    # Color is decimal - use https://www.spycolor.com to convert from hex.
     Spam:
       enabled: false
       color: 16776960
@@ -199,43 +307,58 @@ discord:
     Profanity:
       enabled: false
       color: 16755200
-  # Fallback color if filter name doesn't match any above
+  # Fallback color if the filter name doesn't match any above
   default-color: 16711680
-  # URL to an image shown as footer icon (leave empty to disable)
+  # URL to an image shown as the footer icon (leave empty to disable)
   footer-icon: ""
-  # URL to an image shown as thumbnail in the embed (leave empty to disable)
+  # URL to an image shown as the embed thumbnail (leave empty to disable)
   thumbnail: ""
 
 # ============================================================
 # STAFF NOTIFICATIONS (in-game alerts)
 # ============================================================
 notifications:
-  # Send in-game alerts to players with chatcop.notify permission
+  # Send in-game alerts to players with chatcop.notify
   staff-alerts: true
-  # Format of the in-game alert message (supports placeholders and color codes)
+  # Also announce manual staff actions (mute, unmute, warn)
+  staff-action-alerts: true
+  # Mirror alerts to the server console
+  log-to-console: true
+  # Send the alert to the offending player too (useful when testing)
+  notify-offender: false
+  # Trim the quoted message in alerts to this many characters
+  max-message-length: 50
   alert-format: "&8[&cAlert&8] &7%player% &8| &f%filter% &8| &7\"%message%\""
+  action-format: "&8[&bChatCop&8] &7%actor% &f%action% &7%target%&f %detail%"
   # Play a sound to staff when an alert is sent
   alert-sound: true
-  # Sound name (must be a valid Bukkit sound name)
+  # Either a Bukkit sound name (BLOCK_NOTE_BLOCK_PLING) or a namespaced
+  # key (block.note_block.pling). Both work on every supported version.
   alert-sound-type: "BLOCK_NOTE_BLOCK_PLING"
 
 # ============================================================
-# MESSAGES (supports & color codes and &#RRGGBB hex)
+# MESSAGES
+# Supports & color codes and &#RRGGBB hex. Write && for a literal &.
+# Both {name} and %name% placeholders work.
 # ============================================================
 messages:
-  # Sent to the player when their message is blocked
   blocked: "&cYour message was blocked. Reason: &f{reason}"
-  # Sent to the player when their message is censored
   censored: "&eYour message contained inappropriate language and was censored."
-  # Sent when a muted player tries to chat (shows remaining time)
-  muted: "&cYou are muted. &7Time remaining: &f{time}"
-  # Sent when a player is warned
+  muted: "&cYou are muted. &7Time remaining: &f{time} &8| &7Reason: &f{reason}"
+  muted-permanent: "&cYou are permanently muted. &7Reason: &f{reason}"
+  unmuted: "&aYou are no longer muted."
   warned: "&eWarning &7({count}): &f{reason}"
-  # Sent when a permanently muted player tries to chat
-  muted-permanent: "&cYou are permanently muted."
-  mute-success: "&aSuccessfully muted &f{player} &afor &f{duration}&a."
+  mute-success: "&aMuted &f{player} &afor &f{duration}&a: &f{reason}"
   unmute-success: "&aSuccessfully unmuted &f{player}&a."
-  warn-success: "&aWarned &f{player}&a: &f{reason}"
+  warn-success: "&aWarned &f{player} &7({count})&a: &f{reason}"
+  already-muted: "&c{player} is already muted."
+  not-muted: "&c{player} is not muted."
+  mute-exempt: "&c{player} cannot be muted."
+  slowmode: "&cSlowmode is on. &7Wait &f{time} &7before chatting again."
+  join-delay: "&cYou just joined. &7You can chat in &f{time}&7."
+  chat-locked: "&cChat is currently locked by staff."
+  chat-lock-on: "&cChat has been locked by staff."
+  chat-lock-off: "&aChat has been unlocked."
   reload-success: "&aChatCop configuration reloaded."
   player-not-found: "&cPlayer not found: &f{player}"
   no-permission: "&cYou don't have permission to do that."

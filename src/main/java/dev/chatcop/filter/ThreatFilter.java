@@ -14,11 +14,11 @@ import java.util.regex.Pattern;
 
 public class ThreatFilter implements ChatFilter {
 
-    private List<String> whitelist;
     private final ChatCop plugin;
     private boolean enabled;
     private int points;
     private List<Pattern> patterns;
+    private List<String> whitelist;
 
     public ThreatFilter(ChatCop plugin) {
         this.plugin = plugin;
@@ -27,29 +27,22 @@ public class ThreatFilter implements ChatFilter {
 
     private void load() {
         ConfigurationSection s = plugin.getConfig().getConfigurationSection("filters.threats");
-        if (s == null) { enabled = false; return; }
+        if (s == null) { enabled = false; patterns = List.of(); whitelist = List.of(); return; }
+
         enabled  = s.getBoolean("enabled", true);
         points   = s.getInt("points", 12);
+
         patterns = new ArrayList<>(WordList.compiledThreats);
-        for (String custom : plugin.getConfig().getStringList("filters.threats.blocked-phrases")) {
-            try { patterns.add(Pattern.compile(custom, Pattern.CASE_INSENSITIVE)); } catch (Exception ignored) {}
-        }
-        whitelist = plugin.getConfig().getStringList("filters.threats.whitelisted-phrases");
+        patterns.addAll(FilterSupport.compileCustom(plugin, s.getStringList("blocked-phrases"), "threats"));
+        whitelist = FilterSupport.cleanList(s.getStringList("whitelisted-phrases"));
     }
 
     @Override
     public FilterResult analyze(Player player, String message, PlayerData data) {
-        String normalized = TextNormalizer.normalize(message);
+        List<String> variants = FilterSupport.applyWhitelist(TextNormalizer.variants(message), whitelist);
 
-        // Exempt only the whitelisted phrases themselves, not the whole message.
-        for (String w : whitelist) {
-            if (w == null || w.isBlank()) continue;
-            normalized = normalized.replace(w.toLowerCase(), " ");
-        }
-        for (Pattern p : patterns) {
-            if (p.matcher(normalized).find()) {
-                return FilterResult.block(getName(), "Threat detected", points);
-            }
+        if (TextNormalizer.matchesAny(variants, patterns)) {
+            return FilterResult.block(getName(), "Threat detected", points);
         }
         return FilterResult.allow();
     }

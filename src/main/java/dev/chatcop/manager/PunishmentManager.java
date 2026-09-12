@@ -4,6 +4,7 @@ import dev.chatcop.ChatCop;
 import dev.chatcop.model.PlayerData;
 import dev.chatcop.util.Scheduler;
 import org.bukkit.Bukkit;
+import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 
 import java.util.List;
@@ -13,7 +14,7 @@ import java.util.TreeMap;
 public class PunishmentManager {
 
     private final ChatCop plugin;
-    private TreeMap<Integer, Map<String, Object>> thresholds;
+    private TreeMap<Integer, Map<String, Object>> thresholds = new TreeMap<>();
     private int decayPerMinute;
     private long cooldownMs;
 
@@ -23,25 +24,29 @@ public class PunishmentManager {
     }
 
     private void loadThresholds() {
-        thresholds = new TreeMap<>();
+        TreeMap<Integer, Map<String, Object>> built = new TreeMap<>();
         decayPerMinute = plugin.getConfig().getInt("punishments.point-decay-per-minute", 2);
         cooldownMs = plugin.getConfig().getLong("punishments.punishment-cooldown-seconds", 3) * 1000L;
 
         var section = plugin.getConfig().getConfigurationSection("punishments.thresholds");
-        if (section == null) return;
-        for (String key : section.getKeys(false)) {
-            try {
-                int pts = Integer.parseInt(key);
-                var sub = section.getConfigurationSection(key);
-                if (sub != null) thresholds.put(pts, sub.getValues(false));
-            } catch (NumberFormatException ignored) {}
+        if (section != null) {
+            for (String key : section.getKeys(false)) {
+                try {
+                    int pts = Integer.parseInt(key);
+                    var sub = section.getConfigurationSection(key);
+                    if (sub != null) built.put(pts, sub.getValues(false));
+                } catch (NumberFormatException ignored) {
+                    plugin.getLogger().warning("Ignoring non-numeric punishment threshold: " + key);
+                }
+            }
         }
+        this.thresholds = built;
     }
 
     /**
      * Awards points, runs per-filter punishment commands, then runs the highest
-     * triggered threshold's commands. All gated behind a per-player cooldown so a
-     * spammer can't trigger dozens of punishments in a couple of seconds.
+     * newly-crossed threshold's commands. All gated behind a per-player cooldown
+     * so a spammer can't trigger dozens of punishments in a couple of seconds.
      */
     public void applyPoints(Player player, PlayerData data, int pts, String filterName, String message, String reason) {
         data.setDecayPerMinute(decayPerMinute);
@@ -52,7 +57,6 @@ public class PunishmentManager {
             plugin.getLogger().info("[Debug] " + player.getName() + " now has " + total + " points");
         }
 
-        // Cooldown gate — if still cooling down, skip running commands this time
         if (!data.tryPunish(cooldownMs)) {
             if (plugin.getConfigManager().isDebug()) {
                 plugin.getLogger().info("[Debug] Punishment for " + player.getName() + " suppressed (cooldown)");
@@ -66,13 +70,13 @@ public class PunishmentManager {
         // 2. Highest triggered threshold — but only when the player crosses INTO
         //    a higher threshold than the one already applied to them. Otherwise
         //    every message past the cooldown re-runs the top threshold's command,
-        //    so an external `tempmute` keeps getting removed and re-applied and the
-        //    mute timer never actually counts down (see repeated re-mute spam).
+        //    so an external tempmute keeps getting removed and re-applied and the
+        //    mute timer never actually counts down.
         int alreadyApplied = data.getLastPunishThreshold();
 
         // If points have decayed below what we last punished for, drop the marker
-        // down to the highest threshold still met so good behaviour lets the
-        // escalation start over instead of being stuck at the top forever.
+        // to the highest threshold still met, so good behaviour lets escalation
+        // start over instead of being stuck at the top forever.
         if (total < alreadyApplied) {
             int rebased = 0;
             for (Integer threshold : thresholds.keySet()) {
@@ -111,24 +115,32 @@ public class PunishmentManager {
         }
     }
 
-    public void warn(Player player, PlayerData data, String reason) {
+    /** Issues a warning and tells staff about it. */
+    public void warn(CommandSender actor, Player player, PlayerData data, String reason) {
         data.incrementWarnCount();
         data.addViolation("WARN: " + reason);
-        String msg = plugin.getConfigManager().getMessage("warned",
-                "{count}", String.valueOf(data.getWarnCount()),
-                "{reason}", reason);
-        player.sendMessage(plugin.getConfigManager().getPrefix() + msg);
+
+        player.sendMessage(plugin.getConfigManager().getPrefix()
+                + plugin.getConfigManager().getMessage("warned",
+                        "{count}", String.valueOf(data.getWarnCount()),
+                        "{reason}", reason));
+
+        String actorName = actor == null ? "CONSOLE" : actor.getName();
+        plugin.getNotificationManager().alertAction(actorName, "warned", player.getName(), reason);
+        plugin.getDiscordManager().sendAction(actorName, "Warn", player.getName(), null, reason);
+        plugin.getFileLogger().log(player.getName(), "WARN by " + actorName, reason);
     }
 
     public String applyPlaceholders(String input, Player player, String punisher,
                                     String reason, String message, String duration, String filter) {
         return input
                 .replace("%player%",   player.getName())
+                .replace("%uuid%",     player.getUniqueId().toString())
                 .replace("%punisher%", punisher)
-                .replace("%reason%",   reason)
-                .replace("%message%",  message)
-                .replace("%duration%", duration)
-                .replace("%filter%",   filter)
+                .replace("%reason%",   reason == null ? "" : reason)
+                .replace("%message%",  message == null ? "" : message)
+                .replace("%duration%", duration == null ? "" : duration)
+                .replace("%filter%",   filter == null ? "" : filter)
                 .replace("%world%",    player.getWorld().getName());
     }
 

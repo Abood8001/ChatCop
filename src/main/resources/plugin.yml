@@ -3,15 +3,16 @@ version: '${project.version}'
 main: dev.chatcop.ChatCop
 api-version: '1.20'
 folia-supported: true
-description: Advanced AI-powered chat moderation plugin
+description: Advanced chat moderation for Spigot, Paper and Folia
 authors: [Abood_8001]
-website: https://github.com/chatcop
+website: https://www.spigotmc.org/resources/135758/
+softdepend: [PlaceholderAPI]
 
 commands:
   chatcop:
     description: Main ChatCop command
     aliases: [cc, cop]
-    usage: /chatcop <help|reload|stats|history|test>
+    usage: /chatcop <help|reload|stats|history|check|test|clear|mutelist|slowmode|lock|unlock>
     permission: chatcop.admin
   ccmute:
     description: Mute a player
@@ -30,18 +31,51 @@ permissions:
   chatcop.admin:
     description: Full access to ChatCop
     default: op
+    children:
+      chatcop.stats: true
   chatcop.mute:
     description: Mute/unmute players
     default: op
+  chatcop.mute.exempt:
+    description: Cannot be muted by other staff
+    default: false
+  chatcop.mute.override:
+    description: Can mute players who are normally exempt
+    default: false
   chatcop.warn:
     description: Warn players
     default: op
-  chatcop.bypass:
-    description: Bypass all chat filters
-    default: false
   chatcop.notify:
     description: Receive moderation alerts
     default: op
   chatcop.stats:
     description: View ChatCop statistics
+    default: op
+  chatcop.chatlock.bypass:
+    description: Talk while chat is locked
+    default: op
+
+  chatcop.bypass:
+    description: Bypass all chat filters
+    default: false
+  chatcop.bypass.spam:
+    description: Bypass the spam filter only
+    default: false
+  chatcop.bypass.advertising:
+    description: Bypass the advertising filter only
+    default: false
+  chatcop.bypass.toxicity:
+    description: Bypass the toxicity filter only
+    default: false
+  chatcop.bypass.threats:
+    description: Bypass the threat filter only
+    default: false
+  chatcop.bypass.profanity:
+    description: Bypass the profanity filter only
+    default: false
+  chatcop.bypass.slowmode:
+    description: Bypass chat slowmode
+    default: op
+  chatcop.bypass.joindelay:
+    description: Bypass the first-join chat delay
     default: op
